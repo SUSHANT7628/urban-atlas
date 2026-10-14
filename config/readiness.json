@@ -1,0 +1,285 @@
+{
+ "_comment": "Readiness ('basics first') framework. 'match' = start of the indicator name in the workbooks. Score 0 at 'zero_at', 100 at 'benchmark'. Indicators with a 'gate_floor' form the basic-service gate: pass all = ready to scale smart services; >= gate_targeted = targeted smart use; >= gate_fix = fix foundations first; below = hold new smart spending.",
+ "gate_targeted": 7,
+ "gate_fix": 4,
+ "benchmarks": [
+  {
+   "phase": 1,
+   "match": "Households Connected to Piped",
+   "label": "Piped water to homes",
+   "unit": "%",
+   "zero_at": 40,
+   "benchmark": 100,
+   "gate_floor": 85,
+   "basis": "MoHUA Service Level Benchmarks",
+   "scheme": "AMRUT 2.0",
+   "action": "Give every household a tap connection"
+  },
+  {
+   "phase": 1,
+   "match": "Potable Water Supplied",
+   "label": "Water per person",
+   "unit": " LPCD",
+   "zero_at": 70,
+   "benchmark": 135,
+   "gate_floor": 100,
+   "basis": "MoHUA Service Level Benchmarks",
+   "scheme": "AMRUT 2.0 · City Water Balance Plan",
+   "action": "Augment water source and treatment capacity"
+  },
+  {
+   "phase": 1,
+   "match": "Average Supply Hours",
+   "label": "Hours of water supply",
+   "unit": " hrs/day",
+   "zero_at": 0,
+   "benchmark": 24,
+   "gate_floor": null,
+   "basis": "MoHUA Service Level Benchmarks",
+   "scheme": "AMRUT 2.0 reforms",
+   "action": "Move towards 24×7 supply: zoning, leak control, bulk metering"
+  },
+  {
+   "phase": 1,
+   "match": "Sewerage Network Coverage",
+   "label": "Sewer network coverage",
+   "unit": "%",
+   "zero_at": 30,
+   "benchmark": 100,
+   "gate_floor": 75,
+   "basis": "MoHUA Service Level Benchmarks",
+   "scheme": "AMRUT 2.0 sewerage & septage",
+   "action": "Extend sewers; septage management where unsewered"
+  },
+  {
+   "phase": 1,
+   "match": "Sewage Treatment Efficiency",
+   "label": "Sewage treated",
+   "unit": "%",
+   "zero_at": 30,
+   "benchmark": 100,
+   "gate_floor": 80,
+   "basis": "MoHUA Service Level Benchmarks",
+   "scheme": "AMRUT 2.0 · Namami Gange",
+   "action": "Add and upgrade sewage treatment plants"
+  },
+  {
+   "phase": 1,
+   "match": "Waste Collection Coverage",
+   "label": "Door-to-door waste collection",
+   "unit": "%",
+   "zero_at": 70,
+   "benchmark": 100,
+   "gate_floor": 95,
+   "basis": "MoHUA Service Level Benchmarks",
+   "scheme": "SBM-U 2.0",
+   "action": "Collect segregated waste from every household"
+  },
+  {
+   "phase": 1,
+   "match": "Landfill Dependency",
+   "label": "Waste sent to landfill",
+   "unit": "%",
+   "zero_at": 100,
+   "benchmark": 20,
+   "gate_floor": 50,
+   "basis": "SBM-U 2.0 goals",
+   "scheme": "SBM-U 2.0 · dumpsite remediation",
+   "action": "Process waste scientifically and clear legacy dumpsites"
+  },
+  {
+   "phase": 1,
+   "match": "Avg Hours of Electricity",
+   "label": "Hours of power supply",
+   "unit": " hrs/day",
+   "zero_at": 16,
+   "benchmark": 24,
+   "gate_floor": 22,
+   "basis": "MoHUA Service Level Benchmarks",
+   "scheme": "RDSS",
+   "action": "Strengthen feeders and the distribution network"
+  },
+  {
+   "phase": 1,
+   "match": "Slums/EWS Areas with Toilet",
+   "label": "Toilet access in slums",
+   "unit": "%",
+   "zero_at": 30,
+   "benchmark": 100,
+   "gate_floor": 85,
+   "basis": "MoHUA Service Level Benchmarks",
+   "scheme": "SBM-U 2.0",
+   "action": "Provide toilets in every slum and EWS area"
+  },
+  {
+   "phase": 1,
+   "match": "Flood-Prone Area Coverage",
+   "label": "Drains in flood-prone zones",
+   "unit": "%",
+   "zero_at": 20,
+   "benchmark": 100,
+   "gate_floor": 60,
+   "basis": "MoHUA Service Level Benchmarks",
+   "scheme": "AMRUT 2.0 storm-water drainage",
+   "action": "Build storm-water drains in every flood-prone ward"
+  },
+  {
+   "phase": 2,
+   "match": "Total Registered Doctors",
+   "label": "Doctors per 100,000 people",
+   "unit": "",
+   "zero_at": 30,
+   "benchmark": 100,
+   "gate_floor": null,
+   "basis": "WHO norm (1 per 1,000)",
+   "scheme": "NUHM · PM-ABHIM",
+   "action": "Add doctors and urban health centres"
+  },
+  {
+   "phase": 2,
+   "match": "Slum Population Proportion",
+   "label": "Population living in slums",
+   "unit": "%",
+   "zero_at": 35,
+   "benchmark": 5,
+   "gate_floor": null,
+   "basis": "Best of the Atlas cities",
+   "scheme": "PMAY-U 2.0",
+   "action": "Upgrade slums in place and rehouse where unsafe"
+  },
+  {
+   "phase": 2,
+   "match": "Student-Teacher Ratio",
+   "label": "Students per teacher",
+   "unit": ":1",
+   "zero_at": 50,
+   "benchmark": 30,
+   "gate_floor": null,
+   "basis": "RTE Act norm (30:1)",
+   "scheme": "Samagra Shiksha",
+   "action": "Recruit teachers to reach 30 students per teacher"
+  },
+  {
+   "phase": 2,
+   "match": "Dropout Rate",
+   "label": "School dropout rate",
+   "unit": "%",
+   "zero_at": 10,
+   "benchmark": 0,
+   "gate_floor": null,
+   "basis": "Best of the Atlas cities",
+   "scheme": "Samagra Shiksha",
+   "action": "Cut dropouts through retention and transport support"
+  },
+  {
+   "phase": 2,
+   "match": "Footpath Coverage",
+   "label": "Roads with footpaths",
+   "unit": "%",
+   "zero_at": 0,
+   "benchmark": 100,
+   "gate_floor": null,
+   "basis": "Street design guidelines",
+   "scheme": "Street design guidelines",
+   "action": "Build continuous footpaths on all main roads"
+  },
+  {
+   "phase": 2,
+   "match": "Coverage of MRT",
+   "label": "Population served by metro/BRT",
+   "unit": "%",
+   "zero_at": 0,
+   "benchmark": 70,
+   "gate_floor": null,
+   "basis": "Best of the Atlas cities",
+   "scheme": "PM e-Bus Sewa first, then MRTS",
+   "action": "Expand city buses to 40–60 per lakh before new metro lines"
+  },
+  {
+   "phase": 2,
+   "match": "Accessible Public Buildings",
+   "label": "Barrier-free public buildings",
+   "unit": "%",
+   "zero_at": 0,
+   "benchmark": 100,
+   "gate_floor": null,
+   "basis": "RPWD Act",
+   "scheme": "Accessible India Campaign",
+   "action": "Retrofit ramps, lifts and tactile paths in public buildings"
+  },
+  {
+   "phase": 3,
+   "match": "Air Quality Index",
+   "label": "Annual air quality index",
+   "unit": "",
+   "zero_at": 300,
+   "benchmark": 100,
+   "gate_floor": null,
+   "basis": "NCAP",
+   "scheme": "NCAP · 15th FC air-quality grants",
+   "action": "Cut road dust, waste burning and vehicle emissions"
+  },
+  {
+   "phase": 3,
+   "match": "Recreational Area Per Capita",
+   "label": "Open space per person",
+   "unit": " m²",
+   "zero_at": 0,
+   "benchmark": 9,
+   "gate_floor": null,
+   "basis": "URDPFI (9–10 m² per person)",
+   "scheme": "AMRUT green spaces",
+   "action": "Add parks and open space towards 9 m² per person"
+  },
+  {
+   "phase": 3,
+   "match": "RWH Coverage",
+   "label": "Buildings with rainwater harvesting",
+   "unit": "%",
+   "zero_at": 0,
+   "benchmark": 100,
+   "gate_floor": null,
+   "basis": "AMRUT 2.0",
+   "scheme": "AMRUT 2.0 · building bye-laws",
+   "action": "Enforce rainwater harvesting in all buildings"
+  },
+  {
+   "phase": 3,
+   "match": "Recycling Rate",
+   "label": "Waste recycled or recovered",
+   "unit": "%",
+   "zero_at": 0,
+   "benchmark": 80,
+   "gate_floor": null,
+   "basis": "MoHUA Service Level Benchmarks",
+   "scheme": "SBM-U 2.0",
+   "action": "Scale material recovery and composting"
+  },
+  {
+   "phase": 3,
+   "match": "Early Warning Dissemination",
+   "label": "Population reached by early warning",
+   "unit": "%",
+   "zero_at": 30,
+   "benchmark": 100,
+   "gate_floor": null,
+   "basis": "Best of the Atlas cities",
+   "scheme": "NDMA · SDMA",
+   "action": "Extend SMS, siren and app alerts to all at-risk areas"
+  }
+ ],
+ "smart_tech": [
+  {
+   "match": "Area Coverage (ICCC",
+   "label": "ICCC area coverage"
+  },
+  {
+   "match": "Area Coverage (CCTV",
+   "label": "CCTV area coverage"
+  },
+  {
+   "match": "Intelligent Traffic",
+   "label": "Signals with intelligent control"
+  }
+ ]
+}

@@ -1,0 +1,29 @@
+{
+ "_comment": "Display metadata for each city. A city workbook whose name is not listed here still loads; it just gets no state label.",
+ "cities": {
+  "Delhi": {
+   "state": "NCT of Delhi"
+  },
+  "Kolkata": {
+   "state": "West Bengal"
+  },
+  "Bangalore": {
+   "state": "Karnataka"
+  },
+  "Ahmedabad": {
+   "state": "Gujarat"
+  },
+  "Pune": {
+   "state": "Maharashtra"
+  },
+  "Jaipur": {
+   "state": "Rajasthan"
+  },
+  "Kanpur": {
+   "state": "Uttar Pradesh"
+  },
+  "Patna": {
+   "state": "Bihar"
+  }
+ }
+}
