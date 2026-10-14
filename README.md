@@ -29,7 +29,8 @@ uvicorn app.main:app --app-dir backend --reload
 git clone https://github.com/SUSHANT7628/urban-atlas.git && cd urban-atlas
 pip install -r requirements.txt
 python scripts/manage_users.py add admin --role admin
-uvicorn app.main:app --app-dir backend
+uvicorn app.main:app --app-dir backend or 
+python -m uvicorn app.main:app --app-dir backend
 ```
 Open <http://localhost:8000>. API docs are at <http://localhost:8000/docs>.
 
