@@ -8,3 +8,6 @@ data/.snapshot.json
 data/history.jsonl
 dist/
 ~$*.xlsx
+
+data/users.json
+data/.secret_key

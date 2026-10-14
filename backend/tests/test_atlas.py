@@ -64,30 +64,85 @@ def test_edit_recomputes_ratings_and_logs_history(workspace):
     assert changes and changes[0]["city"] == "Patna" and changes[0]["old"] == "48%"
 
 
-def test_api_and_upload(workspace, monkeypatch):
+@pytest.fixture()
+def client(workspace, monkeypatch):
     data, config = workspace
     monkeypatch.setenv("ATLAS_DATA_DIR", str(data))
     monkeypatch.setenv("ATLAS_CONFIG_DIR", str(config))
-    monkeypatch.setenv("ATLAS_ADMIN_TOKEN", "secret")
+    monkeypatch.setenv("ATLAS_ADMIN_USER", "boss")
+    monkeypatch.setenv("ATLAS_ADMIN_PASSWORD", "admin-pass-123")
+    monkeypatch.delenv("ATLAS_PUBLIC_READ", raising=False)
     import importlib
     import app.main as main
     importlib.reload(main)
     from fastapi.testclient import TestClient
-    c = TestClient(main.app)
-    assert c.get("/api/health").json()["cities"] == 8
+    with TestClient(main.app) as c:  # runs start-up, which creates the first admin
+        main.auth.add_user("reader", "viewer-pass-123", "viewer")
+        yield c, data
+
+H = {"X-Requested-With": "atlas"}
+
+
+def login(c, user, pw):
+    r = c.post("/api/auth/login", json={"username": user, "password": pw})
+    assert r.status_code == 200, r.text
+    return r.json()["user"]
+
+
+def test_reading_needs_sign_in(client):
+    c, _ = client
+    assert c.get("/api/dashboard").status_code == 401
+    assert c.post("/api/auth/login", json={"username": "boss", "password": "wrong-password"}).status_code == 401
+    assert login(c, "reader", "viewer-pass-123")["role"] == "viewer"
     d = c.get("/api/dashboard").json()
-    assert d["cities"][0] == "Ahmedabad" and d["admin_enabled"] is True
+    assert d["cities"][0] == "Ahmedabad" and d["can_write"] is False
     assert c.get("/api/cities/patna").json()["readiness"]["verdict"] == "hold"
     assert c.get("/api/export.csv").text.count("\n") == 8 * 202 + 1
+    c.post("/api/auth/logout")
+    assert c.get("/api/dashboard").status_code == 401
 
-    src = data / "cities" / "Kanpur_Urban_Atlas.xlsx"
+
+def test_viewer_cannot_write(client):
+    c, data = client
+    login(c, "reader", "viewer-pass-123")
+    with (data / "cities" / "Kanpur_Urban_Atlas.xlsx").open("rb") as fh:
+        assert c.post("/api/admin/upload", files={"file": ("Kanpur_Urban_Atlas.xlsx", fh)}, headers=H).status_code == 403
+    assert c.post("/api/admin/reload", headers=H).status_code == 403
+    assert c.get("/api/admin/users", headers=H).status_code == 403
+
+
+def test_admin_upload_and_user_management(client):
+    c, data = client
+    assert login(c, "boss", "admin-pass-123")["role"] == "admin"
+    assert c.get("/api/dashboard").json()["can_write"] is True
     up = data.parent / "Kanpur_Urban_Atlas.xlsx"
-    shutil.copy2(src, up)
+    shutil.copy2(data / "cities" / "Kanpur_Urban_Atlas.xlsx", up)
     set_value(up, "Urban Infrastructure", "Households Connected to Piped", "60%")
+    with up.open("rb") as fh:  # missing anti-forgery header
+        assert c.post("/api/admin/upload", files={"file": (up.name, fh)}).status_code == 400
     with up.open("rb") as fh:
-        assert c.post("/api/admin/upload", files={"file": (up.name, fh)}).status_code == 401
-    with up.open("rb") as fh:
-        r = c.post("/api/admin/upload", files={"file": (up.name, fh)}, headers={"X-Admin-Token": "secret"})
+        r = c.post("/api/admin/upload", files={"file": (up.name, fh)}, headers=H)
     assert r.status_code == 200, r.text
-    assert r.json()["city"] == "Kanpur" and r.json()["values_changed"] == 1
-    assert (data / "backups").exists()
+    assert r.json()["values_changed"] == 1
+    assert "upload by boss" in c.get("/api/history").json()[0]["reason"]
+
+    assert c.post("/api/admin/users", json={"username": "kothari", "password": "pw-123456", "role": "viewer"}, headers=H).status_code == 200
+    assert {u["username"] for u in c.get("/api/admin/users", headers=H).json()} == {"boss", "reader", "kothari"}
+    assert c.patch("/api/admin/users/kothari", json={"role": "admin"}, headers=H).json()["role"] == "admin"
+    assert c.delete("/api/admin/users/boss", headers=H).status_code == 400  # not your own account
+    assert c.delete("/api/admin/users/kothari", headers=H).status_code == 200
+
+
+def test_password_reset_ends_other_sessions(client):
+    c, _ = client
+    login(c, "reader", "viewer-pass-123")
+    assert c.get("/api/dashboard").status_code == 200
+    import app.main as main
+    main.auth.update_user("reader", password="brand-new-pass")
+    assert c.get("/api/dashboard").status_code == 401
+
+
+def test_passwords_are_hashed(client):
+    _, data = client
+    text = (data / "users.json").read_text()
+    assert "viewer-pass-123" not in text and "pbkdf2_sha256$" in text

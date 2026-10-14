@@ -20,7 +20,8 @@ with tempfile.TemporaryDirectory() as tmp:
         if (ROOT / "data" / name).exists():
             shutil.copy2(ROOT / "data" / name, Path(tmp) / name)
     ds = Store(Path(tmp), ROOT / "config").get()
-ds["admin_enabled"] = False
+ds["can_write"] = False
+ds["user"] = None
 
 fe = ROOT / "frontend"
 html = (fe / "index.html").read_text(encoding="utf-8")

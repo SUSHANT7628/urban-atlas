@@ -377,10 +377,9 @@
   // ---------------------------------------------------------------- DATA
   V.data = () => {
     const d = ds(), st = A.state.static;
-    const tok = (() => { try { return sessionStorage.getItem('atlas-token') || ''; } catch (e) { return ''; } })();
     A.$('#view').innerHTML = `
       <h1 class="page-title">Data and updates</h1>
-      <p class="lede">The dashboard is built from one Excel workbook per city in <code>data/cities/</code>. Replace or edit a workbook and the dashboard rebuilds within seconds: ratings, scores, ranks and readiness are recalculated across all cities.</p>
+      <p class="lede">The dashboard is built from one Excel workbook per city in <code>data/cities/</code>. When an admin replaces or edits a workbook, the dashboard rebuilds within seconds: ratings, scores, ranks and readiness are recalculated across all cities.</p>
       <section class="grid g-wide sec">
         <div class="panel flush"><div class="ph"><div><h2>City workbooks</h2><p class="sub">Loaded ${E(A.dateTime(d.meta.loaded_at))}.</p></div>${st ? '' : '<a class="btn" href="api/export.csv">Export all as CSV</a>'}</div>
           <div class="tablewrap"><table><thead><tr><th>City</th><th>File</th><th>Last changed</th><th class="num">Rows</th><th>Checks</th>${st ? '' : '<th></th>'}</tr></thead><tbody>
@@ -388,12 +387,12 @@
           </tbody></table></div></div>
         <div class="panel">
           <h2>Update a city</h2>
-          ${st ? `<p class="sub">This is a static preview. Run the backend (see README) to upload workbooks.</p>` : !d.admin_enabled ? `<p class="sub">Uploads are switched off. Set <code>ATLAS_ADMIN_TOKEN</code> on the server, or edit the files in <code>data/cities/</code> directly — the dashboard picks up changes on its own.</p>` : `
+          ${st ? `<p class="sub">This is a static preview. Run the backend (see README) to upload workbooks.</p>` : !d.can_write ? `<p class="sub">You have view-only access. You can read and download everything; uploading or replacing workbooks needs an admin account.</p><div class="verdict sec"><div><b>Need to change data?</b><span class="small">Ask an admin${d.user ? '' : ', or sign in with an admin account'}. Admins can also edit the files in <code>data/cities/</code> on the server.</span></div></div>` : `
           <p class="sub">Upload a workbook in the city layout. It replaces that city's file; the old one is kept in <code>data/backups/</code>.</p>
           <div class="drop sec" id="drop" tabindex="0" role="button">Drop an .xlsx here, or select a file<br><span class="small" id="dropName"></span></div>
           <input type="file" id="file" accept=".xlsx" hidden>
           <div class="form-row"><label class="field">City <input type="text" id="upCity" list="cityNames" placeholder="From file name" style="width:150px"></label><datalist id="cityNames">${d.cities.map(c => `<option value="${E(c)}">`).join('')}</datalist>
-          <label class="field">Admin token <input type="password" id="upTok" value="${E(tok)}" style="width:150px" autocomplete="off"></label></div>
+          </div>
           <div class="form-row"><button class="btn primary" id="upBtn" type="button" disabled>Upload and rebuild</button><button class="btn" id="reBtn" type="button">Reload files</button></div>
           <div id="upOut"></div>`}
         </div>
@@ -407,8 +406,9 @@ GET  /api/indicators?theme=Mobility%20%26%20Accessibility
 GET  /api/readiness        basic-service gate and actions
 GET  /api/history          change log
 GET  /api/export.csv       long-format export
-POST /api/admin/upload     multipart: file, city   (header X-Admin-Token)
-POST /api/admin/reload                             (header X-Admin-Token)
+POST /api/auth/login       {"username": "...", "password": "..."}  sets the session cookie
+POST /api/admin/upload     multipart: file, city   (admin; header X-Requested-With: atlas)
+POST /api/admin/reload                             (admin; header X-Requested-With: atlas)
 Interactive docs: /docs</pre></section>`;
 
     const hist = () => {
@@ -418,7 +418,7 @@ Interactive docs: /docs</pre></section>`;
     };
     A.$('#hQ').oninput = hist; hist();
 
-    if (st || !d.admin_enabled) return;
+    if (st || !d.can_write) return;
     let chosen = null;
     const drop = A.$('#drop'), file = A.$('#file');
     const setFile = f => { chosen = f; A.$('#dropName').textContent = f ? f.name : ''; A.$('#upBtn').disabled = !f; };
@@ -428,22 +428,89 @@ Interactive docs: /docs</pre></section>`;
     drop.ondragleave = () => drop.classList.remove('over');
     drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); setFile(e.dataTransfer.files[0]); };
     const out = (ok, msg) => A.$('#upOut').innerHTML = `<div class="result ${ok ? 'ok' : 'err'}">${msg}</div>`;
-    const token = () => { const t = A.$('#upTok').value.trim(); try { sessionStorage.setItem('atlas-token', t); } catch (e) {} return t; };
     A.$('#upBtn').onclick = async () => {
       const fd = new FormData(); fd.append('file', chosen); fd.append('city', A.$('#upCity').value.trim());
       A.$('#upBtn').disabled = true; A.$('#upBtn').textContent = 'Uploading…';
       try {
-        const r = await fetch('api/admin/upload', { method: 'POST', body: fd, headers: { 'X-Admin-Token': token() } });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.detail || r.statusText);
+        const j = await A.api('api/admin/upload', { method: 'POST', body: fd });
         out(true, `<b>${E(j.city)}</b> updated: ${j.indicators} indicators read, ${j.values_changed} value${j.values_changed === 1 ? '' : 's'} changed.${j.warnings.length ? `<br><span class="small">${E(j.warnings.slice(0, 4).join(' '))}</span>` : ''}`);
         await A.refresh(true);
       } catch (e) { out(false, E(e.message)); }
       finally { A.$('#upBtn').textContent = 'Upload and rebuild'; A.$('#upBtn').disabled = !chosen; }
     };
     A.$('#reBtn').onclick = async () => {
-      try { const r = await fetch('api/admin/reload', { method: 'POST', headers: { 'X-Admin-Token': token() } }); const j = await r.json(); if (!r.ok) throw new Error(j.detail); A.toast('Files reloaded.'); await A.refresh(true); }
+      try { await A.api('api/admin/reload', { method: 'POST' }); A.toast('Files reloaded.'); await A.refresh(true); }
       catch (e) { out(false, E(e.message)); }
     };
+  };
+
+  // ---------------------------------------------------------------- USERS (admin)
+  V.users = async () => {
+    const d = ds();
+    if (!d.can_write) { A.$('#view').innerHTML = '<div class="empty">Only admins can manage accounts.</div>'; return; }
+    A.$('#view').innerHTML = `
+      <h1 class="page-title">Accounts</h1>
+      <p class="lede">Viewers can see every page, chart and download. Admins can also upload or replace city workbooks, reload data and manage these accounts.</p>
+      <section class="grid g-wide sec">
+        <div class="panel flush"><div class="ph"><div><h2>People with access</h2><p class="sub">Role changes and password resets apply immediately; a reset signs that person out everywhere.</p></div></div><div class="tablewrap" id="uTable"><div class="empty">Loading accounts…</div></div></div>
+        <div class="panel"><h2>Add an account</h2><p class="sub">Share the username and password with the person directly; they can change the password after signing in.</p>
+          <form id="uForm" class="stack" style="gap:10px;margin-top:14px" autocomplete="off">
+            <label class="field" style="flex-direction:column;align-items:stretch">Username<input type="text" id="uName" required minlength="3" maxlength="32" pattern="[A-Za-z0-9._\\-]+" placeholder="e.g. kothari.sir"></label>
+            <label class="field" style="flex-direction:column;align-items:stretch">Full name<input type="text" id="uFull" placeholder="Optional"></label>
+            <label class="field" style="flex-direction:column;align-items:stretch">Temporary password<input type="text" id="uPw" required minlength="8" placeholder="At least 8 characters"></label>
+            <div class="field">Role <div class="seg" id="uRole"><button type="button" data-r="viewer" aria-pressed="true">Viewer</button><button type="button" data-r="admin" aria-pressed="false">Admin</button></div></div>
+            <div class="form-row" style="margin:0"><button class="btn primary" type="submit">Add account</button><button class="btn" type="button" id="uGen">Suggest password</button></div>
+            <div id="uOut"></div>
+          </form></div>
+      </section>`;
+    let role = 'viewer';
+    A.$$('#uRole button').forEach(b => b.onclick = () => { role = b.dataset.r; A.$$('#uRole button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+    A.$('#uGen').onclick = () => { const a = new Uint32Array(3); crypto.getRandomValues(a); A.$('#uPw').value = [...a].map(x => x.toString(36)).join('').slice(0, 14); };
+    const out = (ok, m) => A.$('#uOut').innerHTML = `<div class="result ${ok ? 'ok' : 'err'}">${m}</div>`;
+    A.$('#uForm').onsubmit = async e => {
+      e.preventDefault();
+      try {
+        const u = await A.api('api/admin/users', { method: 'POST', body: { username: A.$('#uName').value.trim(), name: A.$('#uFull').value.trim(), password: A.$('#uPw').value, role } });
+        out(true, `Added <b>${E(u.username)}</b> as ${E(u.role)}.`); A.$('#uForm').reset(); load();
+      } catch (err) { out(false, E(err.message)); }
+    };
+    async function load() {
+      let L;
+      try { L = await A.api('api/admin/users'); } catch (err) { A.$('#uTable').innerHTML = `<div class="empty">${E(err.message)}</div>`; return; }
+      const me = d.user?.username;
+      A.$('#uTable').innerHTML = `<table><thead><tr><th>Account</th><th>Role</th><th>Added</th><th></th></tr></thead><tbody>${L.map(u => `<tr data-u="${E(u.username)}">
+        <td><b>${E(u.name || u.username)}</b><div class="small muted">${E(u.username)}${u.username === me ? ', you' : ''}</div></td>
+        <td><select class="uRoleSel" aria-label="Role for ${E(u.username)}"><option value="viewer" ${u.role === 'viewer' ? 'selected' : ''}>Viewer (read)</option><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin (read and write)</option></select></td>
+        <td class="small muted" style="white-space:nowrap">${E(u.created || '')}</td>
+        <td style="white-space:nowrap"><button class="btn uReset" type="button">Reset password</button> ${u.username === me ? '' : '<button class="btn uDel" type="button">Remove</button>'}</td></tr>`).join('')}</tbody></table>`;
+      A.$$('#uTable tr[data-u]').forEach(tr => {
+        const name = tr.dataset.u;
+        tr.querySelector('.uRoleSel').onchange = async e => {
+          try { await A.api(`api/admin/users/${encodeURIComponent(name)}`, { method: 'PATCH', body: { role: e.target.value } }); A.toast(`${name} is now ${e.target.value === 'admin' ? 'an admin' : 'a viewer'}.`); if (name === me) location.reload(); }
+          catch (err) { A.toast(err.message); load(); }
+        };
+        tr.querySelector('.uReset').onclick = () => confirmRow(tr, `New password for ${E(name)}`, true, async pw => {
+          await A.api(`api/admin/users/${encodeURIComponent(name)}`, { method: 'PATCH', body: { password: pw } }); A.toast(`Password reset for ${name}.`);
+        });
+        const del = tr.querySelector('.uDel');
+        if (del) del.onclick = () => confirmRow(tr, `Remove ${E(name)}? They will be signed out and lose access.`, false, async () => {
+          await A.api(`api/admin/users/${encodeURIComponent(name)}`, { method: 'DELETE' }); A.toast(`Removed ${name}.`);
+        });
+      });
+    }
+    // inline confirmation row (the dashboard avoids browser pop-ups)
+    function confirmRow(tr, label, withPw, action) {
+      A.$$('#uTable tr.confirm').forEach(x => x.remove());
+      const row = document.createElement('tr'); row.className = 'confirm';
+      row.innerHTML = `<td colspan="4" style="background:var(--panel-2)"><div class="form-row" style="margin:0"><span>${label}</span>${withPw ? '<input type="text" class="cPw" minlength="8" placeholder="At least 8 characters" aria-label="New password">' : ''}<button class="btn primary cOk" type="button">${withPw ? 'Set password' : 'Remove'}</button><button class="btn cNo" type="button">Cancel</button><span class="small cErr" style="color:var(--bad)"></span></div></td>`;
+      tr.after(row);
+      row.querySelector('.cNo').onclick = () => row.remove();
+      row.querySelector('.cOk').onclick = async () => {
+        try { await action(withPw ? row.querySelector('.cPw').value : null); row.remove(); load(); }
+        catch (err) { row.querySelector('.cErr').textContent = err.message; }
+      };
+      (row.querySelector('.cPw') || row.querySelector('.cOk')).focus();
+    }
+    load();
   };
 })(window.A);
