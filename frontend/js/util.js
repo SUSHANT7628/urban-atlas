@@ -58,17 +58,6 @@ window.A = window.A || {};
   A.ratingLegend = () => A.LABELS.map(l => `<span><i class="sw" style="background:${A.rVar(l)}"></i>${l}</span>`).join('') + `<span><i class="sw" style="background:var(--r0)"></i>Not rated</span>`;
   A.scoreLegend = () => [[0, 16], [17, 33], [34, 49], [50, 66], [67, 82], [83, 100]].map(([a, b]) => `<span><i class="sw" style="background:${A.sVar((a + b) / 2)}"></i>${a}–${b}</span>`).join('');
 
-  // JSON/multipart API call with the session cookie and the anti-forgery header the backend expects
-  A.api = async (url, opts = {}) => {
-    const o = { method: 'GET', credentials: 'same-origin', ...opts, headers: { 'X-Requested-With': 'atlas', ...(opts.headers || {}) } };
-    if (o.body && !(o.body instanceof FormData) && typeof o.body !== 'string') { o.body = JSON.stringify(o.body); o.headers['Content-Type'] = 'application/json'; }
-    const r = await fetch(url, o);
-    let j = null; try { j = await r.json(); } catch (e) { /* empty body */ }
-    if (r.status === 401 && A.onSignedOut && !url.includes('auth/')) A.onSignedOut();
-    if (!r.ok) { const d = j?.detail; throw new Error(Array.isArray(d) ? d.map(x => x.msg).join(' ') : d || `Request failed (${r.status})`); }
-    return j;
-  };
-
   A.toast = (msg, ms = 4200) => { const t = A.$('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(A._tt); A._tt = setTimeout(() => t.hidden = true, ms); };
 
   // lightweight tooltip for SVG/HTML marks (charts use ECharts' own)

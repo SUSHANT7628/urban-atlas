@@ -14,21 +14,6 @@ It ships with eight cities (Delhi, Kolkata, Bangalore, Ahmedabad, Pune, Jaipur, 
 | **Indicators** | Every value, colour-coded by rating, with a chart, sources and verification notes for each indicator |
 | **Readiness** | The "basics first" gate: which cities can scale smart-city systems and which should fix water, sewerage, waste, power and drainage first, with a phased action plan |
 | **Data & updates** | Workbook status, upload, reload, CSV export and the full change history |
-| **Accounts** (admins only) | Add people, set them as viewer or admin, reset passwords, remove access |
-
-## Who can do what
-
-Everyone signs in with a username and password.
-
-| | Viewer | Admin |
-|---|:-:|:-:|
-| See every page, chart, city profile and indicator | ✓ | ✓ |
-| Download city workbooks and the CSV export | ✓ | ✓ |
-| Change their own password | ✓ | ✓ |
-| Upload or replace city workbooks, reload data, remove a city | | ✓ |
-| Add accounts, change roles, reset passwords, remove accounts | | ✓ |
-
-Passwords are stored only as salted PBKDF2 hashes in `data/users.json`. A sign-in lasts 12 hours (`ATLAS_SESSION_HOURS`); changing a role takes effect immediately, and resetting a password signs that person out everywhere. After eight wrong passwords in five minutes, sign-in pauses for that address. Set `ATLAS_PUBLIC_READ=true` if you want anyone to view without signing in (changes still need an admin).
 
 ## Run it
 
@@ -36,30 +21,18 @@ You need Python 3.10 or newer.
 
 ```bash
 pip install -r requirements.txt
-python scripts/manage_users.py add admin --role admin      # asks for a password
+export ATLAS_ADMIN_TOKEN=pick-a-long-random-string   # Windows PowerShell: $env:ATLAS_ADMIN_TOKEN="..."
 uvicorn app.main:app --app-dir backend --reload
 ```
 
-Open <http://localhost:8000> and sign in. API docs are at <http://localhost:8000/docs>.
-
-Add more people from the *Accounts* page, or on the command line:
-
-```bash
-python scripts/manage_users.py add kothari --role viewer --name "Prof. Kothari"
-python scripts/manage_users.py list
-python scripts/manage_users.py role kothari admin
-python scripts/manage_users.py passwd kothari
-python scripts/manage_users.py remove kothari
-```
+Open <http://localhost:8000>. API docs are at <http://localhost:8000/docs>.
 
 Or with Docker:
 
 ```bash
-cp .env.example .env        # set ATLAS_ADMIN_PASSWORD and ATLAS_SECRET_KEY
+cp .env.example .env        # then set ATLAS_ADMIN_TOKEN in .env
 docker compose up --build
 ```
-
-On first start, if there are no accounts yet, an admin is created from `ATLAS_ADMIN_USER` and `ATLAS_ADMIN_PASSWORD`.
 
 The compose file mounts `data/` and `config/` from your machine, so edits you make there show up in the running dashboard.
 
@@ -68,16 +41,15 @@ The compose file mounts `data/` and `config/` from your machine, so edits you ma
 There are three ways; all of them rebuild ratings, scores, ranks and readiness for every city.
 
 1. **Edit the workbook.** Open `data/cities/Patna_Urban_Atlas.xlsx` (or any city), change a value in the **Value** column and save. The server checks for changed files on every request and the open dashboard checks every 15 seconds, then shows which values changed.
-2. **Upload in the dashboard** (admins). Go to *Data & updates*, drop in the workbook and select **Upload and rebuild**. The previous file is kept in `data/backups/`.
-3. **Use the API** (admins).
+2. **Upload in the dashboard.** Go to *Data & updates*, drop in the workbook, enter the admin token and select **Upload and rebuild**. The previous file is kept in `data/backups/`.
+3. **Use the API.**
    ```bash
-   curl -c cookies.txt -H "Content-Type: application/json" \
-        -d '{"username":"admin","password":"..."}' http://localhost:8000/api/auth/login
-   curl -b cookies.txt -H "X-Requested-With: atlas" \
-        -F file=@Patna_Urban_Atlas.xlsx -F city=Patna http://localhost:8000/api/admin/upload
+   curl -X POST http://localhost:8000/api/admin/upload \
+        -H "X-Admin-Token: $ATLAS_ADMIN_TOKEN" \
+        -F file=@Patna_Urban_Atlas.xlsx -F city=Patna
    ```
 
-Every change is written to `data/history.jsonl` (old value, new value, time, and who uploaded it) and listed under *Data & updates*.
+Every change is written to `data/history.jsonl` (old value, new value, time, how it changed) and listed under *Data & updates*.
 
 ### Add a city
 
@@ -104,42 +76,35 @@ Most values in these workbooks are compiler estimates rather than published figu
 backend/app/loader.py    reads the city workbooks
 backend/app/engine.py    ratings, scores, ranks, readiness
 backend/app/store.py     caching, change detection, history
-backend/app/auth.py      accounts, password hashing, sign-in sessions
-backend/app/main.py      FastAPI routes and role checks; also serves the frontend
+backend/app/main.py      FastAPI routes; also serves the frontend
 backend/tests/           pytest suite
 frontend/                the dashboard (HTML, CSS, plain JavaScript, ECharts)
 config/                  indicator directions, city metadata, readiness benchmarks
 data/cities/             one workbook per city  <- the data you edit
-scripts/manage_users.py  add, list, change or remove accounts from the command line
 scripts/build_preview.py builds dist/preview.html, a static snapshot of the dashboard
 ```
 
 ## API
 
-Sign in first with `POST /api/auth/login`; the session is an HttpOnly cookie. Write calls also need the header `X-Requested-With: atlas`, which blocks forged requests from other sites.
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/api/dashboard` | Everything the dashboard uses |
+| GET | `/api/cities` | Scores and ranks for every city |
+| GET | `/api/cities/{city}` | One city with all indicators and its action plan |
+| GET | `/api/indicators?theme=&q=` | Indicators, filtered |
+| GET | `/api/readiness` | Basic-service gate and actions |
+| GET | `/api/history` | Change log |
+| GET | `/api/export.csv` | Long-format export of all values |
+| GET | `/api/files/{city}` | Download a city workbook |
+| POST | `/api/admin/upload` | Upload a workbook (`X-Admin-Token` header) |
+| POST | `/api/admin/reload` | Force a rebuild (`X-Admin-Token` header) |
+| DELETE | `/api/admin/cities/{city}` | Remove a city (`X-Admin-Token` header) |
 
-| Method | Path | Who | Returns |
-|---|---|---|---|
-| POST | `/api/auth/login` | anyone | Signs in (`{"username","password"}`) |
-| POST | `/api/auth/logout` | anyone | Signs out |
-| GET | `/api/auth/me` | anyone | The signed-in account, if any |
-| POST | `/api/auth/password` | signed in | Changes your own password |
-| GET | `/api/dashboard` | viewer | Everything the dashboard uses |
-| GET | `/api/cities`, `/api/cities/{city}` | viewer | Scores, ranks, indicators, action plan |
-| GET | `/api/indicators?theme=&q=` | viewer | Indicators, filtered |
-| GET | `/api/readiness` | viewer | Basic-service gate and actions |
-| GET | `/api/history` | viewer | Change log |
-| GET | `/api/export.csv` | viewer | Long-format export of all values |
-| GET | `/api/files/{city}` | viewer | Download a city workbook |
-| POST | `/api/admin/upload` | admin | Upload a workbook |
-| POST | `/api/admin/reload` | admin | Force a rebuild |
-| DELETE | `/api/admin/cities/{city}` | admin | Remove a city |
-| GET, POST | `/api/admin/users` | admin | List or add accounts |
-| PATCH, DELETE | `/api/admin/users/{username}` | admin | Change role/password, or remove |
+Uploads and reloads are switched off unless `ATLAS_ADMIN_TOKEN` is set.
 
 ## Deploy
 
-Any host that runs a Docker container or a Python web process works (a small VM, Render, Railway, Fly.io). Mount or attach persistent storage at `/app/data`, otherwise uploaded workbooks, accounts and history are lost when the container restarts. Set `ATLAS_SECRET_KEY` and `ATLAS_ADMIN_PASSWORD` as secrets, serve over HTTPS and set `ATLAS_COOKIE_SECURE=true`.
+Any host that runs a Docker container or a Python web process works (a small VM, Render, Railway, Fly.io). Mount or attach persistent storage at `/app/data`, otherwise uploaded workbooks and history are lost when the container restarts. Set `ATLAS_ADMIN_TOKEN` as a secret.
 
 ## Tests
 
